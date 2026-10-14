@@ -1,0 +1,17 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+test('production server restart preserves ad edits, publications, assignments, and results',{skip:process.env.ADMATCH_RESTART_TEST!=='1'},async()=>{
+const dir=mkdtempSync(join(tmpdir(),'admatch-restart-')),port=3107,base=`http://127.0.0.1:${port}`;
+let child:ReturnType<typeof spawn>|undefined,logs='';
+async function start(){child=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port',String(port)],{env:{...process.env,ADMATCH_DB:join(dir,'restart.sqlite')},stdio:['ignore','pipe','pipe']});child.stdout?.on('data',d=>logs+=d);child.stderr?.on('data',d=>logs+=d);let ready=false;for(let i=0;i<100;i++){if(child.exitCode!==null)break;try{const r=await fetch(base+'/api/manage');if(r.ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,100));}assert.ok(ready,logs);}
+async function stop(){if(child&&child.exitCode===null){const stopped=new Promise<void>(resolve=>child!.once('exit',()=>resolve()));child.kill('SIGTERM');await stopped;}}
+async function manage(body?:unknown){const res=await fetch(base+'/api/manage',{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json','Origin':base,'Sec-Fetch-Site':'same-origin'}:undefined,body:body?JSON.stringify(body):undefined});const json=await res.json();assert.ok(res.ok,JSON.stringify(json));return json;}
+try{await start();assert.equal((await manage()).ads.length,3);const a=(await manage({action:'saveAd',reference:'RESTART',name:'New ad',headline:'Weekend essentials',primaryText:'Pack for a weekend.',destinationUrl:'/p/roam-backpack'})).result;await manage({action:'saveAd',...a,name:'Persisted edit'});await manage({action:'publish',adId:a.id,headline:'Published across restarts.',description:'22 litres of space for your essentials.',reviewed:true});const exp=(await manage({action:'experiment',id:a.id,name:'Persistent experiment'})).result;let response=await fetch(base+`/p/roam-backpack?experiment=${exp.id}`);const cookie=response.headers.get('set-cookie')!.split(';')[0],html=await response.text(),heading=html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)![1],sessionId=html.match(/sessionId.{1,8}([a-f0-9-]{36})/)![1];for(const type of ['view','click','order']){const r=await fetch(base+'/api/events',{method:'POST',headers:{'Content-Type':'application/json','Origin':base,'Sec-Fetch-Site':'same-origin'},body:JSON.stringify({sessionId,type})});assert.ok(r.ok);}
+await stop();await start();const state=await manage();assert.ok(state.ads.some((x:any)=>x.name==='Persisted edit'));assert.equal(state.variations[0].publishedHeadline,'Published across restarts.');assert.equal(state.results.events.length,3);assert.equal(state.results.experiments[0].original.orders+state.results.experiments[0].matching.orders,1);response=await fetch(base+`/p/roam-backpack?experiment=${exp.id}`,{headers:{Cookie:cookie}});assert.equal((await response.text()).match(/<h1[^>]*>([\s\S]*?)<\/h1>/)![1],heading);
+const journey=spawn(process.execPath,['--import','tsx','--test','tests/http.test.ts'],{env:{...process.env,ADMATCH_URL:base},stdio:['ignore','pipe','pipe']});let output='';journey.stdout.on('data',d=>output+=d);journey.stderr.on('data',d=>output+=d);const code=await new Promise(resolve=>journey.on('exit',resolve));assert.equal(code,0,output);
+}finally{await stop();rmSync(dir,{recursive:true});}
+});

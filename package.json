@@ -1,0 +1,38 @@
+{
+  "name": "admatch",
+  "version": "1.0.0",
+  "description": "Local ad-to-landing-page message matching demo with approved variations, experiments, and SQLite storage",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev --webpack --hostname 127.0.0.1",
+    "build": "next build --webpack",
+    "start": "next start --hostname 127.0.0.1",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "test:integration": "npm run build && ADMATCH_RESTART_TEST=1 node --import tsx --test tests/restart.test.ts",
+    "demo": "node scripts/run-local.mjs",
+    "setup": "node scripts/run-local.mjs --setup-only",
+    "check": "next typegen && npm test && npm run typecheck"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "next": "^16.4.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
