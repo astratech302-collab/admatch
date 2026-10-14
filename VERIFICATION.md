@@ -64,3 +64,7 @@ ADMATCH_URL=http://127.0.0.1:3000 node --import tsx --test tests/http.test.ts
 ```
 
 Use the README two-minute script to complete the outstanding browser checks. Also inspect Ads, the edit form, page variations, Results, and the product page at mobile and desktop widths; test Copy link, both preview widths, and the confirmed Reset action.
+
+## Agent setup script
+
+`node scripts/run-local.mjs --setup-only` successfully installed the locked dependencies in a clean archive checkout. `npm run check` then passed all 19 core/origin checks and TypeScript from that fresh checkout. Starting the script with `--port 3117` from outside the repository served the workspace with HTTP 200 and seeded three sample ads. The temporary smoke-test server was stopped afterward; the user's original server/data were left untouched.
